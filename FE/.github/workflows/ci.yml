@@ -1,0 +1,190 @@
+name: Multi-Service CI - Build & Push to Harbor
+
+on:
+    push:
+        branches:
+            - main
+            - dev
+            - production
+            - ldm_ci
+        paths:
+            - 'WEB_part/**'
+            - '.github/workflows/ci.yml'
+    pull_request:
+        branches:
+            - main
+            - dev
+    workflow_dispatch:  # 수동 트리거
+    schedule:
+        - cron: '0 8 * * MON'  # 매주 월요일 8시 (UTC)
+
+permissions:
+    id-token: write
+    contents: read
+
+env:
+    HARBOR_REGISTRY: ${{ secrets.HARBOR_REGISTRY }}
+    HARBOR_PROJECT: ${{ secrets.HARBOR_PROJECT }}
+
+jobs:
+    # ==================== FE 빌드 ====================
+    build-fe:
+        name: Build & Push FE (Frontend)
+        runs-on: ubuntu-latest
+        
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Log in to Harbor registry
+              uses: docker/login-action@v3
+              with:
+                  registry: ${{ env.HARBOR_REGISTRY }}
+                  username: ${{ secrets.HARBOR_USERNAME }}
+                  password: ${{ secrets.HARBOR_PASSWORD }}
+
+            - name: Extract FE metadata
+              id: fe-meta
+              uses: docker/metadata-action@v5
+              with:
+                  images: ${{ env.HARBOR_REGISTRY }}/${{ env.HARBOR_PROJECT }}/teamaiops-fe
+                  tags: |
+                      type=ref,event=branch
+                      type=ref,event=pr
+                      type=sha,prefix=,format=short
+                      type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+                      type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
+
+            - name: Build and push FE Docker image
+              uses: docker/build-push-action@v6
+              with:
+                  context: ./WEB_part/FE
+                  file: ./WEB_part/FE/Dockerfile
+                  push: ${{ github.event_name != 'pull_request' }}
+                  tags: ${{ steps.fe-meta.outputs.tags }}
+                  labels: ${{ steps.fe-meta.outputs.labels }}
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
+
+    # ==================== AI-Server 빌드 ====================
+    build-ai-server:
+        name: Build & Push AI-Server
+        runs-on: ubuntu-latest
+        
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Log in to Harbor registry
+              uses: docker/login-action@v3
+              with:
+                  registry: ${{ env.HARBOR_REGISTRY }}
+                  username: ${{ secrets.HARBOR_USERNAME }}
+                  password: ${{ secrets.HARBOR_PASSWORD }}
+
+            - name: Extract AI-Server metadata
+              id: ai-meta
+              uses: docker/metadata-action@v5
+              with:
+                  images: ${{ env.HARBOR_REGISTRY }}/${{ env.HARBOR_PROJECT }}/teamaiops-ai-server
+                  tags: |
+                      type=ref,event=branch
+                      type=ref,event=pr
+                      type=sha,prefix=,format=short
+                      type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+                      type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
+
+            - name: Build and push AI-Server Docker image
+              uses: docker/build-push-action@v6
+              with:
+                  context: ./WEB_part/BE/AI-server
+                  file: ./WEB_part/BE/AI-server/Dockerfile
+                  push: ${{ github.event_name != 'pull_request' }}
+                  tags: ${{ steps.ai-meta.outputs.tags }}
+                  labels: ${{ steps.ai-meta.outputs.labels }}
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
+
+    # ==================== Auth-Server 빌드 ====================
+    build-auth-server:
+        name: Build & Push Auth-Server
+        runs-on: ubuntu-latest
+        
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Set up JDK 21 (for dependency resolution)
+              uses: actions/setup-java@v4
+              with:
+                  distribution: 'temurin'
+                  java-version: '21'
+                  cache: gradle
+
+            - name: Grant execute permission to Gradle wrapper
+              run: chmod +x ./WEB_part/BE/auth-server/gradlew
+
+            - name: Verify Gradle build (optional lint)
+              working-directory: ./WEB_part/BE/auth-server
+              run: ./gradlew clean build --no-daemon
+
+            - name: Set up Docker Buildx
+              uses: docker/setup-buildx-action@v3
+
+            - name: Log in to Harbor registry
+              uses: docker/login-action@v3
+              with:
+                  registry: ${{ env.HARBOR_REGISTRY }}
+                  username: ${{ secrets.HARBOR_USERNAME }}
+                  password: ${{ secrets.HARBOR_PASSWORD }}
+
+            - name: Extract Auth-Server metadata
+              id: auth-meta
+              uses: docker/metadata-action@v5
+              with:
+                  images: ${{ env.HARBOR_REGISTRY }}/${{ env.HARBOR_PROJECT }}/teamaiops-auth-server
+                  tags: |
+                      type=ref,event=branch
+                      type=ref,event=pr
+                      type=sha,prefix=,format=short
+                      type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+                      type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
+
+            - name: Build and push Auth-Server Docker image
+              uses: docker/build-push-action@v6
+              with:
+                  context: ./WEB_part/BE/auth-server
+                  file: ./WEB_part/BE/auth-server/Dockerfile
+                  push: ${{ github.event_name != 'pull_request' }}
+                  tags: ${{ steps.auth-meta.outputs.tags }}
+                  labels: ${{ steps.auth-meta.outputs.labels }}
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
+
+    # ==================== 빌드 완료 알림 ====================
+    notify:
+        name: CI Pipeline Summary
+        runs-on: ubuntu-latest
+        needs: [build-fe, build-ai-server, build-auth-server]
+        if: always()
+        
+        steps:
+            - name: Pipeline Status
+              run: |
+                  echo "✅ FE Build: ${{ needs.build-fe.result }}"
+                  echo "✅ AI-Server Build: ${{ needs.build-ai-server.result }}"
+                  echo "✅ Auth-Server Build: ${{ needs.build-auth-server.result }}"
+                  
+                  if [ "${{ needs.build-fe.result }}" = "failure" ] || \
+                     [ "${{ needs.build-ai-server.result }}" = "failure" ] || \
+                     [ "${{ needs.build-auth-server.result }}" = "failure" ]; then
+                    echo "❌ Some jobs failed!"
+                    exit 1
+                  fi
+                  echo "🎉 All services built and pushed successfully!"
