@@ -7,7 +7,6 @@
 # Frontend
 **/node_modules/
 **/dist/
-**/package-lock.json
 
 # Backend / Gradle
 .gradle-user-home/
@@ -35,7 +34,6 @@ BE/AI-server/reports_pdf/
 BE/AI-server/model/backups/
 retrian_reports_pdf/
 *.pdf
-*.html
 
 # Backup / duplicate files
 worker_backup*.py
