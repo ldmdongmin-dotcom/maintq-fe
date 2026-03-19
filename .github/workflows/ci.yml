@@ -15,6 +15,17 @@ on:
 
     workflow_dispatch:
 
+    schedule:
+        - cron: '0 3 * * 1'
+
+    release:
+        types:
+            - published
+
+    pull_request_review:
+        types:
+            - submitted
+
 env:
     HARBOR_REGISTRY: ${{ secrets.HARBOR_REGISTRY }} # e.g. harbor.example.com
     HARBOR_PROJECT: ${{ secrets.HARBOR_PROJECT }} # e.g. myproject
