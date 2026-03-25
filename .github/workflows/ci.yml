@@ -114,10 +114,11 @@ jobs:
                   aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
                   aws-region: ap-northeast-2
 
-            - name: Set kubeconfig
+            - name: Update kubeconfig for EKS
               run: |
-                  mkdir -p ~/.kube
-                  echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
+                  aws eks update-kubeconfig \
+                      --region ap-northeast-2 \
+                      --name "${{ secrets.EKS_CLUSTER_NAME }}"
 
             - name: Update deployment image
               run: |
