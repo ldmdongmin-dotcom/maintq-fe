@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: sk016-maintq-fe
+    namespace: skala3-ai1
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: sk016-maintq-fe
+    template:
+        metadata:
+            labels:
+                app: sk016-maintq-fe
+        spec:
+            containers:
+                - name: sk016-maintq-fe
+                  image: amdp-registry.skala-ai.com/skala26a-ai1/3016_maintq-fe@sha256:0f91312762718332c89e46002a72a89b4aa16a2602ec8836cfdbf797b2ff2897
+                  ports:
+                      - containerPort: 8001
+                  volumeMounts:
+                      - name: app-storage
+                        mountPath: /mnt/data
+            volumes:
+                - name: app-storage
+                  persistentVolumeClaim:
+                      claimName: sk016-maintq-fe-pvc
