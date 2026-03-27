@@ -24,4 +24,4 @@ spec:
             volumes:
                 - name: app-storage
                   persistentVolumeClaim:
-                      claimName: sk016-maintq-fe-pvc
+                      claimName: sk016-maintq-fe-pvc-v2
