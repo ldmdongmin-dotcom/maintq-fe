@@ -5,6 +5,8 @@ metadata:
     namespace: skala3-ai1
 spec:
     replicas: 1
+    strategy:
+        type: Recreate
     selector:
         matchLabels:
             app: sk016-maintq-fe-v2
