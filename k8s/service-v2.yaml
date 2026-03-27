@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+    name: sk016-maintq-fe-svc-v2
+    namespace: skala3-ai1
+spec:
+    selector:
+        app: sk016-maintq-fe-v2
+    ports:
+        - protocol: TCP
+          port: 8001
+          targetPort: 8001
+    type: ClusterIP

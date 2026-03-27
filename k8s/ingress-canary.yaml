@@ -1,11 +1,11 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-    name: sk016-maintq-fe-ingress-test
+    name: sk016-maintq-fe-ingress-canary
     namespace: skala3-ai1
     annotations:
-        cert-manager.io/cluster-issuer: letsencrypt-prod
-
+        nginx.ingress.kubernetes.io/canary: 'true'
+        nginx.ingress.kubernetes.io/canary-weight: '10'
 spec:
     ingressClassName: public-nginx
     rules:
@@ -16,11 +16,6 @@ spec:
                     pathType: Prefix
                     backend:
                         service:
-                            # name: sk016-maintq-fe-svc
                             name: sk016-maintq-fe-svc-v2
                             port:
                                 number: 8001
-    tls:
-        - hosts:
-              - sk016-maintq-fe.project.skala-ai.com
-          secretName: sk016-maintq-fe-tls

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+    name: sk016-pod-test
+spec:
+    containers:
+        - name: sk016-maintq-fe
+          image: nginx:latest
+          ports:
+              - containerPort: 80

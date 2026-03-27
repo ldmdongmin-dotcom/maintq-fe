@@ -1,0 +1,117 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: sk016-app-config
+    namespace: skala3-ai1
+data:
+    APP_ENV: 'dev'
+    APP_NAME: 'sample-app'
+    APP_PORT: '8080'
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: sk016-app-pvc
+    namespace: skala3-ai1
+spec:
+    accessModes:
+        - ReadWriteOnce
+    resources:
+        requests:
+            storage: 1Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: sk016-app-with-init
+    namespace: skala3-ai1
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: sk016-app-with-init
+    template:
+        metadata:
+            labels:
+                app: sk016-app-with-init
+        spec:
+            volumes:
+                - name: app-storage
+                  persistentVolumeClaim:
+                      claimName: sk016-app-pvc
+                - name: app-config-generated
+                  emptyDir: {}
+
+            initContainers:
+                - name: init-config
+                  image: busybox:1.36
+                  command:
+                      - sh
+                      - -c
+                      - |
+                          echo "[Init] Start initialization"
+
+                          mkdir -p /data/logs
+                          mkdir -p /data/config
+
+                          cat <<EOF > /generated-config/app.properties
+                          app.name=${APP_NAME}
+                          app.env=${APP_ENV}
+                          app.port=${APP_PORT}
+                          app.log.path=/data/logs
+                          EOF
+
+                          echo "[Init] Generated config:"
+                          cat /generated-config/app.properties
+
+                          echo "[Init] Done"
+                  env:
+                      - name: APP_ENV
+                        valueFrom:
+                            configMapKeyRef:
+                                name: sk016-app-config
+                                key: APP_ENV
+                      - name: APP_NAME
+                        valueFrom:
+                            configMapKeyRef:
+                                name: sk016-app-config
+                                key: APP_NAME
+                      - name: APP_PORT
+                        valueFrom:
+                            configMapKeyRef:
+                                name: sk016-app-config
+                                key: APP_PORT
+                  volumeMounts:
+                      - name: app-storage
+                        mountPath: /data
+                      - name: app-config-generated
+                        mountPath: /generated-config
+
+            containers:
+                - name: main-app
+                  image: busybox:1.36
+                  command:
+                      - sh
+                      - -c
+                      - |
+                          echo "[Main] Application starting..."
+                          echo "[Main] Config file contents:"
+                          cat /app/config/app.properties
+
+                          echo "[Main] Writing startup log..."
+                          echo "$(date) - app started" >> /data/logs/app.log
+
+                          echo "[Main] Current log file:"
+                          cat /data/logs/app.log
+
+                          echo "[Main] Running..."
+                          sleep 3600
+                  ports:
+                      - containerPort: 8080
+                  volumeMounts:
+                      - name: app-storage
+                        mountPath: /data
+                      - name: app-config-generated
+                        mountPath: /app/config
